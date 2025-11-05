@@ -3,6 +3,7 @@
 import { FormEvent, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { storeCurrentUser, type StoredUser } from "@/lib/user-storage";
 
 interface LoginError {
   message: string;
@@ -42,11 +43,15 @@ export default function LoginPage() {
         body: JSON.stringify({ email: trimmedEmail, password: trimmedPassword }),
       });
 
-      const payload = (await response.json()) as { error?: string };
+      const payload = (await response.json()) as { error?: string; user?: StoredUser };
 
       if (!response.ok) {
         setError({ message: payload?.error ?? "Não foi possível validar as credenciais." });
         return;
+      }
+
+      if (payload?.user) {
+        storeCurrentUser(payload.user);
       }
 
       router.push("/dashboard");
