@@ -38,12 +38,22 @@ function normalizeReceita(raw: unknown): Receita | null {
 
   const candidate = raw as {
     id?: unknown;
+    idReceita?: unknown;
     idUsuario?: unknown;
     valor?: unknown;
     data?: unknown;
     descricao?: unknown;
     categoria?: unknown;
   };
+
+  const rawId = candidate.id ?? candidate.idReceita;
+
+  const numericId =
+    typeof rawId === "number"
+      ? rawId
+      : typeof rawId === "string"
+        ? Number(rawId)
+        : undefined;
 
   const numericUserId =
     typeof candidate.idUsuario === "number"
@@ -62,13 +72,6 @@ function normalizeReceita(raw: unknown): Receita | null {
   if (!Number.isFinite(numericUserId) || !Number.isFinite(numericValor)) {
     return null;
   }
-
-  const numericId =
-    typeof candidate.id === "number"
-      ? candidate.id
-      : typeof candidate.id === "string"
-        ? Number(candidate.id)
-        : undefined;
 
   return {
     id: Number.isFinite(numericId) ? (numericId as number) : undefined,
@@ -171,7 +174,7 @@ export default function RevenuePage() {
   const totalReceitas = useMemo(() => receitas.reduce((sum, receita) => sum + receita.valor, 0), [receitas]);
 
   async function handleDelete(receita: Receita) {
-    if (!receita?.id) {
+    if (typeof receita?.id !== "number" || !Number.isFinite(receita.id)) {
       setError("Não foi possível identificar a receita selecionada.");
       return;
     }
@@ -267,46 +270,55 @@ export default function RevenuePage() {
             </div>
 
             <ul className="flex flex-col gap-4">
-              {receitas.map((receita) => (
-                <li
-                  key={`${receita.id ?? receita.descricao}-${receita.data}`}
-                  className="rounded-3xl border border-white/10 bg-white/5 p-6 transition hover:border-emerald-400/60 hover:bg-emerald-500/5"
-                >
-                  <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                    <div className="flex-1">
-                      <div className="flex flex-wrap items-center gap-3">
-                        <h2 className="text-xl font-semibold text-white">{receita.descricao || "Sem descrição"}</h2>
-                        {receita.categoria ? (
-                          <span className="rounded-full border border-emerald-400/40 bg-emerald-400/10 px-3 py-1 text-[0.65rem] font-semibold uppercase tracking-[0.3em] text-emerald-200">
-                            {receita.categoria}
-                          </span>
-                        ) : null}
+              {receitas.map((receita) => {
+                const hasValidId = typeof receita.id === "number" && Number.isFinite(receita.id);
+
+                return (
+                  <li
+                    key={`${receita.id ?? receita.descricao}-${receita.data}`}
+                    className="rounded-3xl border border-white/10 bg-white/5 p-6 transition hover:border-emerald-400/60 hover:bg-emerald-500/5"
+                  >
+                    <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                      <div className="flex-1">
+                        <div className="flex flex-wrap items-center gap-3">
+                          <h2 className="text-xl font-semibold text-white">{receita.descricao || "Sem descrição"}</h2>
+                          {receita.categoria ? (
+                            <span className="rounded-full border border-emerald-400/40 bg-emerald-400/10 px-3 py-1 text-[0.65rem] font-semibold uppercase tracking-[0.3em] text-emerald-200">
+                              {receita.categoria}
+                            </span>
+                          ) : null}
+                        </div>
+                        <p className="mt-3 text-sm text-white/70">Data: {formatDate(receita.data)}</p>
                       </div>
-                      <p className="mt-3 text-sm text-white/70">Data: {formatDate(receita.data)}</p>
-                    </div>
-                    <div className="flex flex-col items-end gap-4">
-                      <span className="text-2xl font-semibold text-emerald-200">{formatCurrency(receita.valor)}</span>
-                      <div className="flex gap-2">
-                        <Link
-                          href={receita.id ? `/dashboard/receitas/${receita.id}/editar` : "#"}
-                          className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.3em] text-white/70 transition hover:border-emerald-300 hover:text-emerald-200 disabled:opacity-60"
-                          aria-disabled={!receita.id}
-                        >
-                          Editar
-                        </Link>
-                        <button
-                          type="button"
-                          onClick={() => handleDelete(receita)}
-                          disabled={deletingId === receita.id || !receita.id}
-                          className="inline-flex items-center gap-2 rounded-full border border-rose-400/40 bg-rose-500/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.3em] text-rose-200 transition hover:border-rose-300 hover:text-rose-100 disabled:cursor-not-allowed disabled:opacity-60"
-                        >
-                          {deletingId === receita.id ? "Excluindo..." : "Excluir"}
-                        </button>
+                      <div className="flex flex-col items-end gap-4">
+                        <span className="text-2xl font-semibold text-emerald-200">{formatCurrency(receita.valor)}</span>
+                        <div className="flex gap-2">
+                          <Link
+                            href={hasValidId ? `/dashboard/receitas/${receita.id}/editar` : "#"}
+                            className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.3em] text-white/70 transition hover:border-emerald-300 hover:text-emerald-200 disabled:opacity-60"
+                            aria-disabled={!hasValidId}
+                            onClick={(event) => {
+                              if (!hasValidId) {
+                                event.preventDefault();
+                              }
+                            }}
+                          >
+                            Editar
+                          </Link>
+                          <button
+                            type="button"
+                            onClick={() => handleDelete(receita)}
+                            disabled={deletingId === receita.id || !hasValidId}
+                            className="inline-flex items-center gap-2 rounded-full border border-rose-400/40 bg-rose-500/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.3em] text-rose-200 transition hover:border-rose-300 hover:text-rose-100 disabled:cursor-not-allowed disabled:opacity-60"
+                          >
+                            {deletingId === receita.id ? "Excluindo..." : "Excluir"}
+                          </button>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                </li>
-              ))}
+                  </li>
+                );
+              })}
             </ul>
           </div>
         )}

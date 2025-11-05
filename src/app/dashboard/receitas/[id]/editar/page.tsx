@@ -26,6 +26,7 @@ function normalizeReceita(raw: unknown): Receita | null {
 
   const candidate = raw as {
     id?: unknown;
+    idReceita?: unknown;
     idUsuario?: unknown;
     valor?: unknown;
     data?: unknown;
@@ -33,11 +34,13 @@ function normalizeReceita(raw: unknown): Receita | null {
     categoria?: unknown;
   };
 
+  const rawId = candidate.id ?? candidate.idReceita;
+
   const numericId =
-    typeof candidate.id === "number"
-      ? candidate.id
-      : typeof candidate.id === "string"
-        ? Number(candidate.id)
+    typeof rawId === "number"
+      ? rawId
+      : typeof rawId === "string"
+        ? Number(rawId)
         : undefined;
 
   const numericUserId =
@@ -188,7 +191,12 @@ export default function EditReceitaPage({ params }: EditPageProps) {
       return;
     }
 
-    const receitaId = currentReceita?.id ?? Number(params.id);
+    const receitaIdFromState =
+      typeof currentReceita?.id === "number" && Number.isFinite(currentReceita.id)
+        ? currentReceita.id
+        : Number.NaN;
+    const receitaIdFromParams = Number(params.id);
+    const receitaId = Number.isFinite(receitaIdFromState) ? receitaIdFromState : receitaIdFromParams;
 
     if (!Number.isFinite(receitaId)) {
       setError("Identificador da receita inválido.");
