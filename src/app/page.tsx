@@ -1,41 +1,8 @@
+"use client";
+
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import Image from "next/image";
-import { FormEvent, useState } from "react";
-import { useRouter } from "next/navigation";
-
-const features = [
-  {
-    title: "Monitoramento em tempo real",
-    description:
-      "Integrações bancárias seguras para consolidar contas, cartões e investimentos em uma única visão clara.",
-  },
-  {
-    title: "Insights inteligentes",
-    description:
-      "Alertas personalizados, metas de economia e recomendações de carteira baseadas no seu perfil de risco.",
-  },
-  {
-    title: "Experiência multicanal",
-    description:
-      "Acompanhe seu patrimônio em qualquer dispositivo com dashboards intuitivos e relatórios compartilháveis.",
-  },
-];
-
-const benefits = [
-  {
-    label: "+48%",
-    description: "usuários aumentaram a capacidade de investimento em 3 meses.",
-  },
-  {
-    label: "12 mil",
-    description: "objetivos financeiros acompanhados em tempo real.",
-  },
-  {
-    label: "99,9%",
-    description: "de disponibilidade com infraestrutura de nível bancário.",
-  },
-];
 
 const features = [
   {
@@ -71,66 +38,6 @@ const benefits = [
 ];
 
 export default function Home() {
-  const router = useRouter();
-  const [isLoginOpen, setIsLoginOpen] = useState(false);
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
-
-  const closeLoginModal = () => {
-    setIsLoginOpen(false);
-    setEmail("");
-    setPassword("");
-    setIsSubmitting(false);
-    setErrorMessage(null);
-  };
-
-  const handleLogin = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-
-    if (isSubmitting) {
-      return;
-    }
-
-    setIsSubmitting(true);
-    setErrorMessage(null);
-
-    try {
-      const response = await fetch("/api/login", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ email, password }),
-      });
-
-      if (!response.ok) {
-        let message = "Credenciais inválidas.";
-
-        try {
-          const data = await response.json();
-          if (typeof data?.error === "string" && data.error.trim()) {
-            message = data.error;
-          }
-        } catch (error) {
-          console.error("Não foi possível interpretar a resposta de erro do login.", error);
-        }
-
-        setErrorMessage(message);
-        return;
-      }
-
-      closeLoginModal();
-      router.push("/dashboard");
-    } catch (error) {
-      console.error("Falha ao autenticar usuário.", error);
-      setErrorMessage("Não foi possível conectar ao servidor. Tente novamente em instantes.");
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
   return (
     <div className="flex min-h-screen flex-col bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 text-white">
       <Header />
