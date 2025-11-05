@@ -31,6 +31,26 @@ function formatDate(value: string) {
   }).format(parsed);
 }
 
+function normalizeReceitaId(value: unknown): number | string | undefined {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+
+    if (!trimmed) {
+      return undefined;
+    }
+
+    const numeric = Number(trimmed);
+
+    return Number.isFinite(numeric) ? numeric : trimmed;
+  }
+
+  return undefined;
+}
+
 function normalizeReceita(raw: unknown): Receita | null {
   if (!raw || typeof raw !== "object") {
     return null;
@@ -63,15 +83,8 @@ function normalizeReceita(raw: unknown): Receita | null {
     return null;
   }
 
-  const numericId =
-    typeof candidate.id === "number"
-      ? candidate.id
-      : typeof candidate.id === "string"
-        ? Number(candidate.id)
-        : undefined;
-
   return {
-    id: Number.isFinite(numericId) ? (numericId as number) : undefined,
+    id: normalizeReceitaId(candidate.id),
     idUsuario: numericUserId as number,
     valor: numericValor as number,
     data: typeof candidate.data === "string" ? candidate.data : "",
@@ -86,7 +99,7 @@ export default function RevenuePage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isUserLoaded, setIsUserLoaded] = useState(false);
-  const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   useEffect(() => {
     setCurrentUser(loadCurrentUser());
@@ -172,7 +185,9 @@ export default function RevenuePage() {
 
   const handleDelete = useCallback(
     async (receita: Receita) => {
-      if (!receita?.id) {
+      const receitaId = receita?.id != null ? String(receita.id).trim() : "";
+
+      if (!receitaId) {
         setError("Não foi possível identificar a receita selecionada.");
         return;
       }
@@ -187,11 +202,11 @@ export default function RevenuePage() {
         }
       }
 
-      setDeletingId(receita.id);
+      setDeletingId(receitaId);
       setError(null);
 
       try {
-        const response = await fetch(`/api/dashboard/receitas/${receita.id}`, {
+        const response = await fetch(`/api/dashboard/receitas/${encodeURIComponent(receitaId)}`, {
           method: "DELETE",
         });
 
@@ -202,7 +217,11 @@ export default function RevenuePage() {
           return;
         }
 
-        setReceitas((previous) => previous.filter((item) => item.id !== receita.id));
+        setReceitas((previous) => previous.filter((item) => {
+          const itemId = item?.id != null ? String(item.id).trim() : "";
+
+          return itemId !== receitaId;
+        }));
 
         if (userId) {
           void loadReceitas(userId);
@@ -274,39 +293,44 @@ export default function RevenuePage() {
             </div>
 
             <ul className="flex flex-col gap-4">
-              {receitas.map((receita) => (
-                <li
-                  key={`${receita.id ?? receita.descricao}-${receita.data}`}
-                  className="rounded-3xl border border-white/10 bg-white/5 p-6 transition hover:border-emerald-400/60 hover:bg-emerald-500/5"
-                >
-                  <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                    <div className="flex-1">
-                      <div className="flex flex-wrap items-center gap-3">
-                        <h2 className="text-xl font-semibold text-white">{receita.descricao || "Sem descrição"}</h2>
-                        {receita.categoria ? (
-                          <span className="rounded-full border border-emerald-400/40 bg-emerald-400/10 px-3 py-1 text-[0.65rem] font-semibold uppercase tracking-[0.3em] text-emerald-200">
-                            {receita.categoria}
-                          </span>
-                        ) : null}
+              {receitas.map((receita) => {
+                const receitaId = receita?.id != null ? String(receita.id).trim() : "";
+                const isDeleting = deletingId === receitaId;
+
+                return (
+                  <li
+                    key={`${receita.id ?? receita.descricao}-${receita.data}`}
+                    className="rounded-3xl border border-white/10 bg-white/5 p-6 transition hover:border-emerald-400/60 hover:bg-emerald-500/5"
+                  >
+                    <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                      <div className="flex-1">
+                        <div className="flex flex-wrap items-center gap-3">
+                          <h2 className="text-xl font-semibold text-white">{receita.descricao || "Sem descrição"}</h2>
+                          {receita.categoria ? (
+                            <span className="rounded-full border border-emerald-400/40 bg-emerald-400/10 px-3 py-1 text-[0.65rem] font-semibold uppercase tracking-[0.3em] text-emerald-200">
+                              {receita.categoria}
+                            </span>
+                          ) : null}
+                        </div>
+                        <p className="mt-3 text-sm text-white/70">Data: {formatDate(receita.data)}</p>
                       </div>
-                      <p className="mt-3 text-sm text-white/70">Data: {formatDate(receita.data)}</p>
-                    </div>
-                    <div className="flex flex-col items-end gap-4">
-                      <span className="text-2xl font-semibold text-emerald-200">{formatCurrency(receita.valor)}</span>
-                      <div className="flex gap-2">
-                        <button
-                          type="button"
-                          onClick={() => handleDelete(receita)}
-                          disabled={deletingId === receita.id || !receita.id}
-                          className="inline-flex items-center gap-2 rounded-full border border-rose-400/40 bg-rose-500/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.3em] text-rose-200 transition hover:border-rose-300 hover:text-rose-100 disabled:cursor-not-allowed disabled:opacity-60"
-                        >
-                          {deletingId === receita.id ? "Excluindo..." : "Excluir"}
-                        </button>
+                      <div className="flex flex-col items-end gap-4">
+                        <span className="text-2xl font-semibold text-emerald-200">{formatCurrency(receita.valor)}</span>
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            onClick={() => handleDelete(receita)}
+                            disabled={isDeleting || !receitaId}
+                            className="inline-flex items-center gap-2 rounded-full border border-rose-400/40 bg-rose-500/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.3em] text-rose-200 transition hover:border-rose-300 hover:text-rose-100 disabled:cursor-not-allowed disabled:opacity-60"
+                          >
+                            {isDeleting ? "Excluindo..." : "Excluir"}
+                          </button>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                </li>
-              ))}
+                  </li>
+                );
+              })}
             </ul>
           </div>
         )}
