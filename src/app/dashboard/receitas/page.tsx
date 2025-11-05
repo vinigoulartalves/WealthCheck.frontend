@@ -5,6 +5,10 @@ import Link from "next/link";
 import type { Receita } from "@/interfaces/receita.interface";
 import { extractUserId, loadCurrentUser, type StoredUser } from "@/lib/user-storage";
 
+interface ReceitaListItem extends Receita {
+  pathId: string;
+}
+
 function formatCurrency(value: number) {
   return new Intl.NumberFormat("pt-BR", {
     style: "currency",
@@ -31,7 +35,7 @@ function formatDate(value: string) {
   }).format(parsed);
 }
 
-function normalizeReceita(raw: unknown): Receita | null {
+function normalizeReceita(raw: unknown): ReceitaListItem | null {
   if (!raw || typeof raw !== "object") {
     return null;
   }
@@ -55,6 +59,13 @@ function normalizeReceita(raw: unknown): Receita | null {
         ? Number(rawId)
         : undefined;
 
+  const pathId =
+    typeof rawId === "string"
+      ? rawId.trim()
+      : Number.isFinite(numericId)
+        ? String(numericId)
+        : "";
+
   const numericUserId =
     typeof candidate.idUsuario === "number"
       ? candidate.idUsuario
@@ -73,6 +84,10 @@ function normalizeReceita(raw: unknown): Receita | null {
     return null;
   }
 
+  if (!pathId) {
+    return null;
+  }
+
   return {
     id: Number.isFinite(numericId) ? (numericId as number) : undefined,
     idUsuario: numericUserId as number,
@@ -80,16 +95,17 @@ function normalizeReceita(raw: unknown): Receita | null {
     data: typeof candidate.data === "string" ? candidate.data : "",
     descricao: typeof candidate.descricao === "string" ? candidate.descricao : "",
     categoria: typeof candidate.categoria === "string" ? candidate.categoria : "",
+    pathId,
   };
 }
 
 export default function RevenuePage() {
   const [currentUser, setCurrentUser] = useState<StoredUser | null>(null);
-  const [receitas, setReceitas] = useState<Receita[]>([]);
+  const [receitas, setReceitas] = useState<ReceitaListItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isUserLoaded, setIsUserLoaded] = useState(false);
-  const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   useEffect(() => {
     setCurrentUser(loadCurrentUser());
@@ -129,7 +145,7 @@ export default function RevenuePage() {
         }
 
         const normalized = Array.isArray(payload?.receitas)
-          ? (payload.receitas.map((item) => normalizeReceita(item)).filter(Boolean) as Receita[])
+          ? (payload.receitas.map((item) => normalizeReceita(item)).filter(Boolean) as ReceitaListItem[])
           : [];
 
         const ordered = normalized
@@ -173,8 +189,8 @@ export default function RevenuePage() {
 
   const totalReceitas = useMemo(() => receitas.reduce((sum, receita) => sum + receita.valor, 0), [receitas]);
 
-  async function handleDelete(receita: Receita) {
-    if (typeof receita?.id !== "number" || !Number.isFinite(receita.id)) {
+  async function handleDelete(receita: ReceitaListItem) {
+    if (!receita?.pathId) {
       setError("Não foi possível identificar a receita selecionada.");
       return;
     }
@@ -189,11 +205,11 @@ export default function RevenuePage() {
       }
     }
 
-    setDeletingId(receita.id);
+    setDeletingId(receita.pathId);
     setError(null);
 
     try {
-      const response = await fetch(`/api/dashboard/receitas/${receita.id}`, {
+      const response = await fetch(`/api/dashboard/receitas/${encodeURIComponent(receita.pathId)}`, {
         method: "DELETE",
       });
 
@@ -204,7 +220,7 @@ export default function RevenuePage() {
         return;
       }
 
-      setReceitas((previous) => previous.filter((item) => item.id !== receita.id));
+      setReceitas((previous) => previous.filter((item) => item.pathId !== receita.pathId));
     } catch (deleteError) {
       console.error("Falha ao excluir receita.", deleteError);
       setError("Não foi possível excluir a receita.");
@@ -271,11 +287,11 @@ export default function RevenuePage() {
 
             <ul className="flex flex-col gap-4">
               {receitas.map((receita) => {
-                const hasValidId = typeof receita.id === "number" && Number.isFinite(receita.id);
+                const hasValidId = Boolean(receita.pathId);
 
                 return (
                   <li
-                    key={`${receita.id ?? receita.descricao}-${receita.data}`}
+                    key={`${receita.pathId}-${receita.data}`}
                     className="rounded-3xl border border-white/10 bg-white/5 p-6 transition hover:border-emerald-400/60 hover:bg-emerald-500/5"
                   >
                     <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
@@ -294,7 +310,7 @@ export default function RevenuePage() {
                         <span className="text-2xl font-semibold text-emerald-200">{formatCurrency(receita.valor)}</span>
                         <div className="flex gap-2">
                           <Link
-                            href={hasValidId ? `/dashboard/receitas/${receita.id}/editar` : "#"}
+                            href={hasValidId ? `/dashboard/receitas/${encodeURIComponent(receita.pathId)}/editar` : "#"}
                             className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.3em] text-white/70 transition hover:border-emerald-300 hover:text-emerald-200 disabled:opacity-60"
                             aria-disabled={!hasValidId}
                             onClick={(event) => {
@@ -308,10 +324,10 @@ export default function RevenuePage() {
                           <button
                             type="button"
                             onClick={() => handleDelete(receita)}
-                            disabled={deletingId === receita.id || !hasValidId}
+                            disabled={deletingId === receita.pathId || !hasValidId}
                             className="inline-flex items-center gap-2 rounded-full border border-rose-400/40 bg-rose-500/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.3em] text-rose-200 transition hover:border-rose-300 hover:text-rose-100 disabled:cursor-not-allowed disabled:opacity-60"
                           >
-                            {deletingId === receita.id ? "Excluindo..." : "Excluir"}
+                            {deletingId === receita.pathId ? "Excluindo..." : "Excluir"}
                           </button>
                         </div>
                       </div>

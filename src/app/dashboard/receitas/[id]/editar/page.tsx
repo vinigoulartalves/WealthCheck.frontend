@@ -127,12 +127,12 @@ export default function EditReceitaPage({ params }: EditPageProps) {
   const userId = useMemo(() => extractUserId(currentUser), [currentUser]);
 
   useEffect(() => {
-    async function fetchReceita() {
+    async function fetchReceita(receitaId: string) {
       setIsLoadingReceita(true);
       setError(null);
 
       try {
-        const response = await fetch(`/api/dashboard/receita/${params.id}`);
+        const response = await fetch(`/api/dashboard/receita/${encodeURIComponent(receitaId)}`);
         const payload = (await response.json()) as { receita?: unknown; error?: string };
 
         if (!response.ok) {
@@ -162,8 +162,10 @@ export default function EditReceitaPage({ params }: EditPageProps) {
       }
     }
 
-    if (params?.id) {
-      void fetchReceita();
+    const receitaId = params?.id?.trim();
+
+    if (receitaId) {
+      void fetchReceita(receitaId);
     }
   }, [params?.id]);
 
@@ -191,14 +193,9 @@ export default function EditReceitaPage({ params }: EditPageProps) {
       return;
     }
 
-    const receitaIdFromState =
-      typeof currentReceita?.id === "number" && Number.isFinite(currentReceita.id)
-        ? currentReceita.id
-        : Number.NaN;
-    const receitaIdFromParams = Number(params.id);
-    const receitaId = Number.isFinite(receitaIdFromState) ? receitaIdFromState : receitaIdFromParams;
+    const receitaIdFromParams = params?.id?.trim();
 
-    if (!Number.isFinite(receitaId)) {
+    if (!receitaIdFromParams) {
       setError("Identificador da receita inválido.");
       return;
     }
@@ -222,7 +219,7 @@ export default function EditReceitaPage({ params }: EditPageProps) {
     setError(null);
 
     try {
-      const response = await fetch(`/api/dashboard/receita/${receitaId}`, {
+      const response = await fetch(`/api/dashboard/receita/${encodeURIComponent(receitaIdFromParams)}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
