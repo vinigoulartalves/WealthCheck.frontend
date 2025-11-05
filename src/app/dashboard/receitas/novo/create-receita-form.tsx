@@ -3,112 +3,13 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import type { Receita } from "@/interfaces/receita.interface";
 import { extractUserId, loadCurrentUser, type StoredUser } from "@/lib/user-storage";
-
-interface EditPageProps {
-  params: {
-    id: string;
-  };
-}
 
 interface FormState {
   valor: string;
   data: string;
   descricao: string;
   categoria: string;
-}
-
-function normalizeReceitaId(value: unknown): number | string | undefined {
-  if (typeof value === "number" && Number.isFinite(value)) {
-    return value;
-  }
-
-  if (typeof value === "string") {
-    const trimmed = value.trim();
-
-    if (!trimmed) {
-      return undefined;
-    }
-
-    const numeric = Number(trimmed);
-
-    return Number.isFinite(numeric) ? numeric : trimmed;
-  }
-
-  return undefined;
-}
-
-function resolveReceitaId(candidate: {
-  id?: unknown;
-  idReceita?: unknown;
-  receitaId?: unknown;
-  id_receita?: unknown;
-  receita_id?: unknown;
-}) {
-  const possibleIds = [
-    candidate.id,
-    candidate.idReceita,
-    candidate.receitaId,
-    candidate.id_receita,
-    candidate.receita_id,
-  ];
-
-  for (const value of possibleIds) {
-    const normalized = normalizeReceitaId(value);
-
-    if (normalized != null) {
-      return normalized;
-    }
-  }
-
-  return undefined;
-}
-
-function normalizeReceita(raw: unknown): Receita | null {
-  if (!raw || typeof raw !== "object") {
-    return null;
-  }
-
-  const candidate = raw as {
-    id?: unknown;
-    idReceita?: unknown;
-    receitaId?: unknown;
-    id_receita?: unknown;
-    receita_id?: unknown;
-    idUsuario?: unknown;
-    valor?: unknown;
-    data?: unknown;
-    descricao?: unknown;
-    categoria?: unknown;
-  };
-
-  const numericUserId =
-    typeof candidate.idUsuario === "number"
-      ? candidate.idUsuario
-      : typeof candidate.idUsuario === "string"
-        ? Number(candidate.idUsuario)
-        : null;
-
-  const numericValor =
-    typeof candidate.valor === "number"
-      ? candidate.valor
-      : typeof candidate.valor === "string"
-        ? Number(candidate.valor.replace(/\./g, "").replace(",", "."))
-        : null;
-
-  if (!Number.isFinite(numericUserId) || !Number.isFinite(numericValor)) {
-    return null;
-  }
-
-  return {
-    id: resolveReceitaId(candidate),
-    idUsuario: numericUserId as number,
-    valor: numericValor as number,
-    data: typeof candidate.data === "string" ? candidate.data : "",
-    descricao: typeof candidate.descricao === "string" ? candidate.descricao : "",
-    categoria: typeof candidate.categoria === "string" ? candidate.categoria : "",
-  };
 }
 
 function normalizeValorInput(value: string) {
@@ -125,27 +26,19 @@ function parseValor(value: string) {
   return Number(sanitized);
 }
 
-function toDateInputValue(value: string) {
-  if (!value) {
-    return "";
-  }
+const today = new Date();
+const defaultDate = Number.isNaN(today.getTime()) ? "" : today.toISOString().slice(0, 10);
 
-  const parsed = new Date(value);
-
-  if (Number.isNaN(parsed.getTime())) {
-    return value;
-  }
-
-  return parsed.toISOString().slice(0, 10);
-}
-
-export default function EditReceitaPage({ params }: EditPageProps) {
+export default function CreateReceitaForm() {
   const router = useRouter();
   const [currentUser, setCurrentUser] = useState<StoredUser | null>(null);
   const [isUserLoaded, setIsUserLoaded] = useState(false);
-  const [isLoadingReceita, setIsLoadingReceita] = useState(true);
-  const [currentReceita, setCurrentReceita] = useState<Receita | null>(null);
-  const [formState, setFormState] = useState<FormState>({ valor: "", data: "", descricao: "", categoria: "" });
+  const [formState, setFormState] = useState<FormState>({
+    valor: "",
+    data: defaultDate,
+    descricao: "",
+    categoria: "",
+  });
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -156,55 +49,14 @@ export default function EditReceitaPage({ params }: EditPageProps) {
 
   const userId = useMemo(() => extractUserId(currentUser), [currentUser]);
 
-  useEffect(() => {
-    async function fetchReceita() {
-      setIsLoadingReceita(true);
-      setError(null);
-
-      try {
-        const response = await fetch(`/api/dashboard/receitas/${params.id}`);
-        const payload = (await response.json()) as { receita?: unknown; error?: string };
-
-        if (!response.ok) {
-          setError(payload?.error ?? "Não foi possível carregar a receita selecionada.");
-          return;
-        }
-
-        const normalized = normalizeReceita(payload?.receita);
-
-        if (!normalized) {
-          setError("Receita não encontrada.");
-          return;
-        }
-
-        setCurrentReceita(normalized);
-        setFormState({
-          valor: normalized.valor.toString(),
-          data: toDateInputValue(normalized.data),
-          descricao: normalized.descricao,
-          categoria: normalized.categoria,
-        });
-      } catch (loadError) {
-        console.error("Falha ao carregar receita.", loadError);
-        setError("Não foi possível carregar a receita selecionada.");
-      } finally {
-        setIsLoadingReceita(false);
-      }
-    }
-
-    if (params?.id) {
-      void fetchReceita();
-    }
-  }, [params?.id]);
-
   function handleChange(field: keyof FormState) {
-    return (event: FormEvent<HTMLInputElement>) => {
-      const target = event.target as HTMLInputElement;
-      const value = field === "valor" ? normalizeValorInput(target.value) : target.value;
+    return (event: FormEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+      const { value } = event.currentTarget;
+      const formattedValue = field === "valor" ? normalizeValorInput(value) : value;
 
       setFormState((previous) => ({
         ...previous,
-        [field]: value,
+        [field]: formattedValue,
       }));
     };
   }
@@ -218,14 +70,6 @@ export default function EditReceitaPage({ params }: EditPageProps) {
 
     if (!userId) {
       setError("Não foi possível identificar o usuário logado. Faça login novamente.");
-      return;
-    }
-
-    const receitaIdRaw = currentReceita?.id ?? params.id;
-    const receitaId = receitaIdRaw != null ? String(receitaIdRaw).trim() : "";
-
-    if (!receitaId) {
-      setError("Identificador da receita inválido.");
       return;
     }
 
@@ -248,8 +92,8 @@ export default function EditReceitaPage({ params }: EditPageProps) {
     setError(null);
 
     try {
-      const response = await fetch(`/api/dashboard/receitas/${encodeURIComponent(receitaId)}`, {
-        method: "PUT",
+      const response = await fetch("/api/dashboard/receitas", {
+        method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
@@ -265,14 +109,14 @@ export default function EditReceitaPage({ params }: EditPageProps) {
       const payload = (await response.json()) as { error?: string };
 
       if (!response.ok) {
-        setError(payload?.error ?? "Não foi possível atualizar a receita.");
+        setError(payload?.error ?? "Não foi possível cadastrar a receita.");
         return;
       }
 
       router.push("/dashboard/receitas");
-    } catch (updateError) {
-      console.error("Falha ao atualizar receita.", updateError);
-      setError("Não foi possível atualizar a receita.");
+    } catch (submissionError) {
+      console.error("Falha ao criar receita.", submissionError);
+      setError("Não foi possível cadastrar a receita.");
     } finally {
       setIsSubmitting(false);
     }
@@ -283,10 +127,10 @@ export default function EditReceitaPage({ params }: EditPageProps) {
       <div className="mx-auto max-w-3xl px-6 py-16">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.4em] text-emerald-300">Editar receita</p>
-            <h1 className="mt-2 text-3xl font-semibold">Atualize a entrada</h1>
+            <p className="text-xs font-semibold uppercase tracking-[0.4em] text-emerald-300">Nova receita</p>
+            <h1 className="mt-2 text-3xl font-semibold">Cadastre uma entrada</h1>
             <p className="mt-3 text-sm text-white/60">
-              Ajuste os dados da receita para manter o histórico financeiro sempre atualizado.
+              Preencha os campos abaixo para registrar uma nova receita vinculada ao seu usuário.
             </p>
           </div>
           <Link
@@ -307,15 +151,7 @@ export default function EditReceitaPage({ params }: EditPageProps) {
           </div>
         ) : !userId ? (
           <div className="mt-12 rounded-3xl border border-amber-500/30 bg-amber-500/10 px-6 py-10 text-center text-sm text-amber-100">
-            Faça login para editar receitas.
-          </div>
-        ) : isLoadingReceita ? (
-          <div className="mt-12 rounded-3xl border border-white/10 bg-white/5 px-6 py-10 text-center text-sm text-white/60">
-            Carregando dados da receita...
-          </div>
-        ) : !currentReceita ? (
-          <div className="mt-12 rounded-3xl border border-white/10 bg-white/5 px-6 py-10 text-center text-sm text-white/60">
-            Receita não encontrada.
+            Faça login para cadastrar novas receitas.
           </div>
         ) : (
           <form className="mt-10 flex flex-col gap-6" onSubmit={handleSubmit}>
@@ -338,12 +174,7 @@ export default function EditReceitaPage({ params }: EditPageProps) {
               <input
                 type="date"
                 value={formState.data}
-                onChange={(event) =>
-                  setFormState((previous) => ({
-                    ...previous,
-                    data: event.target.value,
-                  }))
-                }
+                onChange={handleChange("data")}
                 className="w-full rounded-xl border border-white/10 bg-white/10 px-4 py-3 text-white outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-400/50"
                 disabled={isSubmitting}
                 required
@@ -355,12 +186,7 @@ export default function EditReceitaPage({ params }: EditPageProps) {
               <input
                 type="text"
                 value={formState.descricao}
-                onChange={(event) =>
-                  setFormState((previous) => ({
-                    ...previous,
-                    descricao: event.target.value,
-                  }))
-                }
+                onChange={handleChange("descricao")}
                 className="w-full rounded-xl border border-white/10 bg-white/10 px-4 py-3 text-white outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-400/50"
                 placeholder="Ex.: Salário mensal"
                 disabled={isSubmitting}
@@ -372,12 +198,7 @@ export default function EditReceitaPage({ params }: EditPageProps) {
               <input
                 type="text"
                 value={formState.categoria}
-                onChange={(event) =>
-                  setFormState((previous) => ({
-                    ...previous,
-                    categoria: event.target.value,
-                  }))
-                }
+                onChange={handleChange("categoria")}
                 className="w-full rounded-xl border border-white/10 bg-white/10 px-4 py-3 text-white outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-400/50"
                 placeholder="Ex.: Salário"
                 disabled={isSubmitting}
@@ -397,7 +218,7 @@ export default function EditReceitaPage({ params }: EditPageProps) {
                     Salvando...
                   </>
                 ) : (
-                  "Salvar alterações"
+                  "Cadastrar receita"
                 )}
               </span>
             </button>
@@ -407,3 +228,4 @@ export default function EditReceitaPage({ params }: EditPageProps) {
     </div>
   );
 }
+
