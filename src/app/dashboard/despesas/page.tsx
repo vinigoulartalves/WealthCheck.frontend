@@ -142,7 +142,29 @@ export default function DespesasPage() {
 
     try {
       const response = await fetch(`/api/dashboard/despesas?idUsuario=${encodeURIComponent(String(idUsuario))}`);
-      const payload = (await response.json()) as { despesas?: unknown; error?: string };
+      let bodyText = "";
+
+      try {
+        bodyText = await response.text();
+      } catch (readError) {
+        console.error("Falha ao ler a resposta ao consultar despesas.", readError);
+      }
+
+      let payload: { despesas?: unknown; error?: string } | null = null;
+
+      if (bodyText) {
+        try {
+          payload = JSON.parse(bodyText) as { despesas?: unknown; error?: string };
+        } catch (parseError) {
+          console.error(
+            "A resposta da API de despesas não está em um formato JSON válido.",
+            parseError,
+            bodyText.slice(0, 120),
+          );
+          setError("Não foi possível carregar as despesas.");
+          return;
+        }
+      }
 
       if (!response.ok) {
         setError(payload?.error ?? "Não foi possível carregar as despesas.");
@@ -199,7 +221,29 @@ export default function DespesasPage() {
         const response = await fetch(`/api/dashboard/despesas/${encodeURIComponent(despesaId)}`, {
           method: "DELETE",
         });
-        const payload = response.status === 204 ? null : ((await response.json()) as { error?: string } | null);
+        let bodyText = "";
+
+        if (response.status !== 204) {
+          try {
+            bodyText = await response.text();
+          } catch (readError) {
+            console.error("Falha ao ler a resposta da exclusão de despesa.", readError);
+          }
+        }
+
+        let payload: { error?: string } | null = null;
+
+        if (bodyText) {
+          try {
+            payload = JSON.parse(bodyText) as { error?: string } | null;
+          } catch (parseError) {
+            console.error(
+              "A resposta da API ao excluir despesa não está em um formato JSON válido.",
+              parseError,
+              bodyText.slice(0, 120),
+            );
+          }
+        }
 
         if (!response.ok) {
           setError(payload?.error ?? "Não foi possível excluir a despesa.");

@@ -106,7 +106,29 @@ export default function CreateDespesaForm() {
         }),
       });
 
-      const payload = (await response.json()) as { error?: string };
+      let bodyText = "";
+
+      if (response.status !== 204) {
+        try {
+          bodyText = await response.text();
+        } catch (readError) {
+          console.error("Falha ao ler a resposta da criação de despesa.", readError);
+        }
+      }
+
+      let payload: { error?: string } | null = null;
+
+      if (bodyText) {
+        try {
+          payload = JSON.parse(bodyText) as { error?: string } | null;
+        } catch (parseError) {
+          console.error(
+            "A resposta da API ao criar despesa não está em um formato JSON válido.",
+            parseError,
+            bodyText.slice(0, 120),
+          );
+        }
+      }
 
       if (!response.ok) {
         setError(payload?.error ?? "Não foi possível cadastrar a despesa.");
