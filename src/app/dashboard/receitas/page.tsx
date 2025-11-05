@@ -170,45 +170,52 @@ export default function RevenuePage() {
 
   const totalReceitas = useMemo(() => receitas.reduce((sum, receita) => sum + receita.valor, 0), [receitas]);
 
-  async function handleDelete(receita: Receita) {
-    if (!receita?.id) {
-      setError("Não foi possível identificar a receita selecionada.");
-      return;
-    }
-
-    if (typeof window !== "undefined") {
-      const confirmed = window.confirm(
-        `Deseja realmente excluir a receita "${receita.descricao || "Sem descrição"}"?`,
-      );
-
-      if (!confirmed) {
-        return;
-      }
-    }
-
-    setDeletingId(receita.id);
-    setError(null);
-
-    try {
-      const response = await fetch(`/api/dashboard/receitas/${receita.id}`, {
-        method: "DELETE",
-      });
-
-      const payload = await response.json().catch(() => null as { error?: string } | null);
-
-      if (!response.ok) {
-        setError(payload?.error ?? "Não foi possível excluir a receita.");
+  const handleDelete = useCallback(
+    async (receita: Receita) => {
+      if (!receita?.id) {
+        setError("Não foi possível identificar a receita selecionada.");
         return;
       }
 
-      setReceitas((previous) => previous.filter((item) => item.id !== receita.id));
-    } catch (deleteError) {
-      console.error("Falha ao excluir receita.", deleteError);
-      setError("Não foi possível excluir a receita.");
-    } finally {
-      setDeletingId(null);
-    }
-  }
+      if (typeof window !== "undefined") {
+        const confirmed = window.confirm(
+          `Deseja realmente excluir a receita "${receita.descricao || "Sem descrição"}"?`,
+        );
+
+        if (!confirmed) {
+          return;
+        }
+      }
+
+      setDeletingId(receita.id);
+      setError(null);
+
+      try {
+        const response = await fetch(`/api/dashboard/receitas/${receita.id}`, {
+          method: "DELETE",
+        });
+
+        const payload = await response.json().catch(() => null as { error?: string } | null);
+
+        if (!response.ok) {
+          setError(payload?.error ?? "Não foi possível excluir a receita.");
+          return;
+        }
+
+        setReceitas((previous) => previous.filter((item) => item.id !== receita.id));
+
+        if (userId) {
+          void loadReceitas(userId);
+        }
+      } catch (deleteError) {
+        console.error("Falha ao excluir receita.", deleteError);
+        setError("Não foi possível excluir a receita.");
+      } finally {
+        setDeletingId(null);
+      }
+    },
+    [loadReceitas, userId],
+  );
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 text-white">
