@@ -34,15 +34,17 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Não foi possível carregar as receitas." }, { status: 502 });
     }
 
-    const receitas = (await response.json()) as unknown;
+    const payload = (await response.json()) as unknown;
 
-    if (!Array.isArray(receitas)) {
-      console.error("Estrutura inesperada recebida da API de receitas.", receitas);
+    const receitas = extractReceitasList(payload);
+
+    if (!receitas) {
+      console.error("Estrutura inesperada recebida da API de receitas.", payload);
       return NextResponse.json({ error: "Não foi possível carregar as receitas." }, { status: 502 });
     }
 
     if (!userId) {
-      return NextResponse.json({ receitas });
+      return NextResponse.json({ receitas, origem: payload });
     }
 
     const numericUserId = Number(userId);
@@ -70,11 +72,33 @@ export async function GET(request: NextRequest) {
       return false;
     });
 
-    return NextResponse.json({ receitas: filteredReceitas });
+    return NextResponse.json({ receitas: filteredReceitas, origem: payload });
   } catch (error) {
     console.error("Erro inesperado ao consultar receitas.", error);
     return NextResponse.json({ error: "Não foi possível carregar as receitas." }, { status: 502 });
   }
+}
+
+function extractReceitasList(payload: unknown): unknown[] | null {
+  if (Array.isArray(payload)) {
+    return payload;
+  }
+
+  if (payload && typeof payload === "object") {
+    const container = payload as Record<string, unknown>;
+
+    const possibleKeys = ["receitas", "data", "items", "content"];
+
+    for (const key of possibleKeys) {
+      const value = container[key];
+
+      if (Array.isArray(value)) {
+        return value;
+      }
+    }
+  }
+
+  return null;
 }
 
 export async function POST(request: Request) {

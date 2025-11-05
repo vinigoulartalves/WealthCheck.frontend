@@ -9,6 +9,28 @@ interface ReceitaListItem extends Receita {
   pathId: string;
 }
 
+function extractReceitasPayload(payload: unknown): unknown[] {
+  if (Array.isArray(payload)) {
+    return payload;
+  }
+
+  if (payload && typeof payload === "object") {
+    const container = payload as Record<string, unknown>;
+
+    const candidates = ["receitas", "data", "items", "content"] as const;
+
+    for (const key of candidates) {
+      const value = container[key];
+
+      if (Array.isArray(value)) {
+        return value;
+      }
+    }
+  }
+
+  return [];
+}
+
 function formatCurrency(value: number) {
   return new Intl.NumberFormat("pt-BR", {
     style: "currency",
@@ -136,17 +158,24 @@ export default function RevenuePage() {
 
       try {
         const response = await fetch(`/api/dashboard/receitas?idUsuario=${idUsuario}`);
-        const payload = (await response.json()) as { receitas?: unknown; error?: string };
+        const payload = (await response.json()) as { receitas?: unknown; error?: string } | unknown;
 
         if (!response.ok) {
-          setError(payload?.error ?? "Não foi possível carregar as receitas.");
+          const errorMessage =
+            payload && typeof payload === "object" && "error" in payload && typeof (payload as { error?: unknown }).error === "string"
+              ? ((payload as { error: string }).error as string)
+              : "Não foi possível carregar as receitas.";
+
+          setError(errorMessage);
           setReceitas([]);
           return;
         }
 
-        const normalized = Array.isArray(payload?.receitas)
-          ? (payload.receitas.map((item) => normalizeReceita(item)).filter(Boolean) as ReceitaListItem[])
-          : [];
+        const rawReceitas = extractReceitasPayload(payload);
+
+        const normalized = rawReceitas
+          .map((item) => normalizeReceita(item))
+          .filter(Boolean) as ReceitaListItem[];
 
         const ordered = normalized
           .slice()
