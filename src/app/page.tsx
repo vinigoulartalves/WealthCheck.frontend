@@ -1,10 +1,41 @@
-"use client";
-
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import Image from "next/image";
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
+
+const features = [
+  {
+    title: "Monitoramento em tempo real",
+    description:
+      "Integrações bancárias seguras para consolidar contas, cartões e investimentos em uma única visão clara.",
+  },
+  {
+    title: "Insights inteligentes",
+    description:
+      "Alertas personalizados, metas de economia e recomendações de carteira baseadas no seu perfil de risco.",
+  },
+  {
+    title: "Experiência multicanal",
+    description:
+      "Acompanhe seu patrimônio em qualquer dispositivo com dashboards intuitivos e relatórios compartilháveis.",
+  },
+];
+
+const benefits = [
+  {
+    label: "+48%",
+    description: "usuários aumentaram a capacidade de investimento em 3 meses.",
+  },
+  {
+    label: "12 mil",
+    description: "objetivos financeiros acompanhados em tempo real.",
+  },
+  {
+    label: "99,9%",
+    description: "de disponibilidade com infraestrutura de nível bancário.",
+  },
+];
 
 const features = [
   {
@@ -102,79 +133,7 @@ export default function Home() {
 
   return (
     <div className="flex min-h-screen flex-col bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 text-white">
-      <Header onLoginClick={() => setIsLoginOpen(true)} />
-
-      {isLoginOpen ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
-          <div className="absolute inset-0 bg-slate-950/80 backdrop-blur" onClick={closeLoginModal} />
-          <div className="relative w-full max-w-md overflow-hidden rounded-3xl border border-white/10 bg-slate-900/90 p-8 shadow-[0_25px_60px_-15px_rgba(16,185,129,0.35)]">
-            <button
-              type="button"
-              onClick={closeLoginModal}
-              className="absolute right-4 top-4 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-medium uppercase tracking-widest text-white/70 transition hover:border-emerald-300 hover:text-emerald-200"
-            >
-              Fechar
-            </button>
-            <div className="space-y-6">
-              <div>
-                <span className="text-xs font-semibold uppercase tracking-[0.4em] text-emerald-300">Acessar conta</span>
-                <h2 className="mt-2 text-2xl font-semibold">Bem-vindo de volta à WealthCheck</h2>
-                <p className="mt-2 text-sm text-white/60">
-                  Utilize as credenciais fornecidas pela sua consultoria para entrar com segurança.
-                </p>
-              </div>
-              <form className="space-y-5" onSubmit={handleLogin}>
-                <div className="space-y-2">
-                  <label className="block text-xs font-semibold uppercase tracking-[0.3em] text-white/60" htmlFor="email">
-                    Email
-                  </label>
-                  <input
-                    id="email"
-                    name="email"
-                    type="email"
-                    autoComplete="email"
-                    autoFocus
-                    required
-                    value={email}
-                    onChange={(event) => setEmail(event.target.value)}
-                    className="w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-sm text-white outline-none transition placeholder:text-white/40 focus:border-emerald-400 focus:ring-2 focus:ring-emerald-500/40"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="block text-xs font-semibold uppercase tracking-[0.3em] text-white/60" htmlFor="password">
-                    Senha
-                  </label>
-                  <input
-                    id="password"
-                    name="password"
-                    type="password"
-                    autoComplete="current-password"
-                    required
-                    value={password}
-                    onChange={(event) => setPassword(event.target.value)}
-                    className="w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-sm text-white outline-none transition placeholder:text-white/40 focus:border-emerald-400 focus:ring-2 focus:ring-emerald-500/40"
-                  />
-                </div>
-                {errorMessage ? (
-                  <p className="rounded-2xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
-                    {errorMessage}
-                  </p>
-                ) : null}
-                <button
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="group relative flex w-full items-center justify-center overflow-hidden rounded-full bg-emerald-400 px-6 py-3 text-sm font-semibold uppercase tracking-widest text-slate-950 transition focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 focus:ring-offset-slate-900 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  <span className="absolute inset-0 translate-y-full bg-gradient-to-r from-emerald-400 via-teal-400 to-emerald-500 transition-transform duration-300 ease-out group-hover:translate-y-0" />
-                  <span className="relative">
-                    {isSubmitting ? "Validando..." : "Acessar painel"}
-                  </span>
-                </button>
-              </form>
-            </div>
-          </div>
-        </div>
-      ) : null}
+      <Header />
 
       <main className="flex-1">
         <section className="relative overflow-hidden">

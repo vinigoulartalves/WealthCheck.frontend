@@ -1,10 +1,4 @@
-"use client";
-
-type HeaderProps = {
-  onLoginClick?: () => void;
-};
-
-export default function Header({ onLoginClick }: HeaderProps) {
+export default function Header() {
   return (
     <header className="sticky top-0 z-40 w-full border-b border-white/10 bg-black/60 backdrop-blur-md">
       <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-5 text-white">
@@ -25,11 +19,7 @@ export default function Header({ onLoginClick }: HeaderProps) {
             Insights
           </a>
         </nav>
-        <button
-          type="button"
-          onClick={onLoginClick}
-          className="group relative overflow-hidden rounded-full border border-emerald-400 px-5 py-2 text-sm font-semibold uppercase tracking-widest text-emerald-200 transition duration-300 ease-out hover:text-black"
-        >
+        <button className="group relative overflow-hidden rounded-full border border-emerald-400 px-5 py-2 text-sm font-semibold uppercase tracking-widest text-emerald-200 transition duration-300 ease-out hover:text-black">
           <span className="absolute inset-0 translate-y-full bg-gradient-to-r from-emerald-400 to-emerald-500 transition-transform duration-300 ease-out group-hover:translate-y-0" />
           <span className="relative">Entrar</span>
         </button>
