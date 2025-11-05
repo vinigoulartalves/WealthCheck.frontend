@@ -56,19 +56,13 @@ export function clearStoredUser() {
   }
 }
 
-export function extractUserId(user: StoredUser | null): number | null {
-  if (!user) {
-    return null;
+function parseNumericId(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
   }
 
-  const { id } = user;
-
-  if (typeof id === "number" && Number.isFinite(id)) {
-    return id;
-  }
-
-  if (typeof id === "string") {
-    const trimmed = id.trim();
+  if (typeof value === "string") {
+    const trimmed = value.trim();
 
     if (!trimmed) {
       return null;
@@ -78,6 +72,30 @@ export function extractUserId(user: StoredUser | null): number | null {
 
     if (Number.isFinite(numericId)) {
       return numericId;
+    }
+  }
+
+  return null;
+}
+
+export function extractUserId(user: StoredUser | null): number | null {
+  if (!user) {
+    return null;
+  }
+
+  const candidateIds: unknown[] = [
+    user.id,
+    (user as { idUsuario?: unknown }).idUsuario,
+    (user as { usuarioId?: unknown }).usuarioId,
+    (user as { userId?: unknown }).userId,
+    (user as { id_usuario?: unknown }).id_usuario,
+  ];
+
+  for (const candidate of candidateIds) {
+    const parsed = parseNumericId(candidate);
+
+    if (parsed !== null) {
+      return parsed;
     }
   }
 
