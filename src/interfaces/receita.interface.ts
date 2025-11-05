@@ -1,5 +1,5 @@
 export interface Receita {
-  id?: number;
+  id?: number | string;
   idUsuario: number;
   valor: number;
   data: string;

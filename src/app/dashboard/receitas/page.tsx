@@ -31,6 +31,52 @@ function formatDate(value: string) {
   }).format(parsed);
 }
 
+function normalizeReceitaId(value: unknown): number | string | undefined {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+
+    if (!trimmed) {
+      return undefined;
+    }
+
+    const numeric = Number(trimmed);
+
+    return Number.isFinite(numeric) ? numeric : trimmed;
+  }
+
+  return undefined;
+}
+
+function resolveReceitaId(candidate: {
+  id?: unknown;
+  idReceita?: unknown;
+  receitaId?: unknown;
+  id_receita?: unknown;
+  receita_id?: unknown;
+}) {
+  const possibleIds = [
+    candidate.id,
+    candidate.idReceita,
+    candidate.receitaId,
+    candidate.id_receita,
+    candidate.receita_id,
+  ];
+
+  for (const value of possibleIds) {
+    const normalized = normalizeReceitaId(value);
+
+    if (normalized != null) {
+      return normalized;
+    }
+  }
+
+  return undefined;
+}
+
 function normalizeReceita(raw: unknown): Receita | null {
   if (!raw || typeof raw !== "object") {
     return null;
@@ -38,6 +84,10 @@ function normalizeReceita(raw: unknown): Receita | null {
 
   const candidate = raw as {
     id?: unknown;
+    idReceita?: unknown;
+    receitaId?: unknown;
+    id_receita?: unknown;
+    receita_id?: unknown;
     idUsuario?: unknown;
     valor?: unknown;
     data?: unknown;
@@ -63,15 +113,8 @@ function normalizeReceita(raw: unknown): Receita | null {
     return null;
   }
 
-  const numericId =
-    typeof candidate.id === "number"
-      ? candidate.id
-      : typeof candidate.id === "string"
-        ? Number(candidate.id)
-        : undefined;
-
   return {
-    id: Number.isFinite(numericId) ? (numericId as number) : undefined,
+    id: resolveReceitaId(candidate),
     idUsuario: numericUserId as number,
     valor: numericValor as number,
     data: typeof candidate.data === "string" ? candidate.data : "",
@@ -86,7 +129,7 @@ export default function RevenuePage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isUserLoaded, setIsUserLoaded] = useState(false);
-  const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   useEffect(() => {
     setCurrentUser(loadCurrentUser());
@@ -170,45 +213,58 @@ export default function RevenuePage() {
 
   const totalReceitas = useMemo(() => receitas.reduce((sum, receita) => sum + receita.valor, 0), [receitas]);
 
-  async function handleDelete(receita: Receita) {
-    if (!receita?.id) {
-      setError("Não foi possível identificar a receita selecionada.");
-      return;
-    }
+  const handleDelete = useCallback(
+    async (receita: Receita) => {
+      const receitaId = receita?.id != null ? String(receita.id).trim() : "";
 
-    if (typeof window !== "undefined") {
-      const confirmed = window.confirm(
-        `Deseja realmente excluir a receita "${receita.descricao || "Sem descrição"}"?`,
-      );
-
-      if (!confirmed) {
-        return;
-      }
-    }
-
-    setDeletingId(receita.id);
-    setError(null);
-
-    try {
-      const response = await fetch(`/api/dashboard/receitas/${receita.id}`, {
-        method: "DELETE",
-      });
-
-      const payload = await response.json().catch(() => null as { error?: string } | null);
-
-      if (!response.ok) {
-        setError(payload?.error ?? "Não foi possível excluir a receita.");
+      if (!receitaId) {
+        setError("Não foi possível identificar a receita selecionada.");
         return;
       }
 
-      setReceitas((previous) => previous.filter((item) => item.id !== receita.id));
-    } catch (deleteError) {
-      console.error("Falha ao excluir receita.", deleteError);
-      setError("Não foi possível excluir a receita.");
-    } finally {
-      setDeletingId(null);
-    }
-  }
+      if (typeof window !== "undefined") {
+        const confirmed = window.confirm(
+          `Deseja realmente excluir a receita "${receita.descricao || "Sem descrição"}"?`,
+        );
+
+        if (!confirmed) {
+          return;
+        }
+      }
+
+      setDeletingId(receitaId);
+      setError(null);
+
+      try {
+        const response = await fetch(`/api/dashboard/receitas/${encodeURIComponent(receitaId)}`, {
+          method: "DELETE",
+        });
+
+        const payload = await response.json().catch(() => null as { error?: string } | null);
+
+        if (!response.ok) {
+          setError(payload?.error ?? "Não foi possível excluir a receita.");
+          return;
+        }
+
+        setReceitas((previous) => previous.filter((item) => {
+          const itemId = item?.id != null ? String(item.id).trim() : "";
+
+          return itemId !== receitaId;
+        }));
+
+        if (userId) {
+          void loadReceitas(userId);
+        }
+      } catch (deleteError) {
+        console.error("Falha ao excluir receita.", deleteError);
+        setError("Não foi possível excluir a receita.");
+      } finally {
+        setDeletingId(null);
+      }
+    },
+    [loadReceitas, userId],
+  );
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 text-white">
@@ -267,39 +323,44 @@ export default function RevenuePage() {
             </div>
 
             <ul className="flex flex-col gap-4">
-              {receitas.map((receita) => (
-                <li
-                  key={`${receita.id ?? receita.descricao}-${receita.data}`}
-                  className="rounded-3xl border border-white/10 bg-white/5 p-6 transition hover:border-emerald-400/60 hover:bg-emerald-500/5"
-                >
-                  <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                    <div className="flex-1">
-                      <div className="flex flex-wrap items-center gap-3">
-                        <h2 className="text-xl font-semibold text-white">{receita.descricao || "Sem descrição"}</h2>
-                        {receita.categoria ? (
-                          <span className="rounded-full border border-emerald-400/40 bg-emerald-400/10 px-3 py-1 text-[0.65rem] font-semibold uppercase tracking-[0.3em] text-emerald-200">
-                            {receita.categoria}
-                          </span>
-                        ) : null}
+              {receitas.map((receita) => {
+                const receitaId = receita?.id != null ? String(receita.id).trim() : "";
+                const isDeleting = deletingId === receitaId;
+
+                return (
+                  <li
+                    key={`${receita.id ?? receita.descricao}-${receita.data}`}
+                    className="rounded-3xl border border-white/10 bg-white/5 p-6 transition hover:border-emerald-400/60 hover:bg-emerald-500/5"
+                  >
+                    <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                      <div className="flex-1">
+                        <div className="flex flex-wrap items-center gap-3">
+                          <h2 className="text-xl font-semibold text-white">{receita.descricao || "Sem descrição"}</h2>
+                          {receita.categoria ? (
+                            <span className="rounded-full border border-emerald-400/40 bg-emerald-400/10 px-3 py-1 text-[0.65rem] font-semibold uppercase tracking-[0.3em] text-emerald-200">
+                              {receita.categoria}
+                            </span>
+                          ) : null}
+                        </div>
+                        <p className="mt-3 text-sm text-white/70">Data: {formatDate(receita.data)}</p>
                       </div>
-                      <p className="mt-3 text-sm text-white/70">Data: {formatDate(receita.data)}</p>
-                    </div>
-                    <div className="flex flex-col items-end gap-4">
-                      <span className="text-2xl font-semibold text-emerald-200">{formatCurrency(receita.valor)}</span>
-                      <div className="flex gap-2">
-                        <button
-                          type="button"
-                          onClick={() => handleDelete(receita)}
-                          disabled={deletingId === receita.id || !receita.id}
-                          className="inline-flex items-center gap-2 rounded-full border border-rose-400/40 bg-rose-500/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.3em] text-rose-200 transition hover:border-rose-300 hover:text-rose-100 disabled:cursor-not-allowed disabled:opacity-60"
-                        >
-                          {deletingId === receita.id ? "Excluindo..." : "Excluir"}
-                        </button>
+                      <div className="flex flex-col items-end gap-4">
+                        <span className="text-2xl font-semibold text-emerald-200">{formatCurrency(receita.valor)}</span>
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            onClick={() => handleDelete(receita)}
+                            disabled={isDeleting}
+                            className="inline-flex items-center gap-2 rounded-full border border-rose-400/40 bg-rose-500/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.3em] text-rose-200 transition hover:border-rose-300 hover:text-rose-100 disabled:cursor-not-allowed disabled:opacity-60"
+                          >
+                            {isDeleting ? "Excluindo..." : "Excluir"}
+                          </button>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                </li>
-              ))}
+                  </li>
+                );
+              })}
             </ul>
           </div>
         )}

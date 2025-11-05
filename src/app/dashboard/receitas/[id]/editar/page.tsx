@@ -19,6 +19,52 @@ interface FormState {
   categoria: string;
 }
 
+function normalizeReceitaId(value: unknown): number | string | undefined {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+
+    if (!trimmed) {
+      return undefined;
+    }
+
+    const numeric = Number(trimmed);
+
+    return Number.isFinite(numeric) ? numeric : trimmed;
+  }
+
+  return undefined;
+}
+
+function resolveReceitaId(candidate: {
+  id?: unknown;
+  idReceita?: unknown;
+  receitaId?: unknown;
+  id_receita?: unknown;
+  receita_id?: unknown;
+}) {
+  const possibleIds = [
+    candidate.id,
+    candidate.idReceita,
+    candidate.receitaId,
+    candidate.id_receita,
+    candidate.receita_id,
+  ];
+
+  for (const value of possibleIds) {
+    const normalized = normalizeReceitaId(value);
+
+    if (normalized != null) {
+      return normalized;
+    }
+  }
+
+  return undefined;
+}
+
 function normalizeReceita(raw: unknown): Receita | null {
   if (!raw || typeof raw !== "object") {
     return null;
@@ -26,19 +72,16 @@ function normalizeReceita(raw: unknown): Receita | null {
 
   const candidate = raw as {
     id?: unknown;
+    idReceita?: unknown;
+    receitaId?: unknown;
+    id_receita?: unknown;
+    receita_id?: unknown;
     idUsuario?: unknown;
     valor?: unknown;
     data?: unknown;
     descricao?: unknown;
     categoria?: unknown;
   };
-
-  const numericId =
-    typeof candidate.id === "number"
-      ? candidate.id
-      : typeof candidate.id === "string"
-        ? Number(candidate.id)
-        : undefined;
 
   const numericUserId =
     typeof candidate.idUsuario === "number"
@@ -59,7 +102,7 @@ function normalizeReceita(raw: unknown): Receita | null {
   }
 
   return {
-    id: Number.isFinite(numericId) ? (numericId as number) : undefined,
+    id: resolveReceitaId(candidate),
     idUsuario: numericUserId as number,
     valor: numericValor as number,
     data: typeof candidate.data === "string" ? candidate.data : "",
@@ -178,9 +221,10 @@ export default function EditReceitaPage({ params }: EditPageProps) {
       return;
     }
 
-    const receitaId = currentReceita?.id ?? Number(params.id);
+    const receitaIdRaw = currentReceita?.id ?? params.id;
+    const receitaId = receitaIdRaw != null ? String(receitaIdRaw).trim() : "";
 
-    if (!Number.isFinite(receitaId)) {
+    if (!receitaId) {
       setError("Identificador da receita inválido.");
       return;
     }
@@ -204,7 +248,7 @@ export default function EditReceitaPage({ params }: EditPageProps) {
     setError(null);
 
     try {
-      const response = await fetch(`/api/dashboard/receitas/${receitaId}`, {
+      const response = await fetch(`/api/dashboard/receitas/${encodeURIComponent(receitaId)}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
