@@ -45,6 +45,20 @@ function normalizeReceita(raw: unknown): Receita | null {
     categoria?: unknown;
   };
 
+  const candidateWithAlternateIds = candidate as {
+    idReceita?: unknown;
+    receitaId?: unknown;
+    receitaID?: unknown;
+    id_receita?: unknown;
+  };
+
+  const rawId =
+    candidate.id ??
+    candidateWithAlternateIds.idReceita ??
+    candidateWithAlternateIds.receitaId ??
+    candidateWithAlternateIds.receitaID ??
+    candidateWithAlternateIds.id_receita;
+
   const numericUserId =
     typeof candidate.idUsuario === "number"
       ? candidate.idUsuario
@@ -64,10 +78,10 @@ function normalizeReceita(raw: unknown): Receita | null {
   }
 
   const numericId =
-    typeof candidate.id === "number"
-      ? candidate.id
-      : typeof candidate.id === "string"
-        ? Number(candidate.id)
+    typeof rawId === "number"
+      ? rawId
+      : typeof rawId === "string"
+        ? Number(rawId.trim())
         : undefined;
 
   return {
