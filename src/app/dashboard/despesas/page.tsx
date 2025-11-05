@@ -136,61 +136,63 @@ export default function DespesasPage() {
     [currentUser],
   );
 
-  const loadDespesas = useCallback(async (idUsuario: number) => {
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      const response = await fetch(`/api/dashboard/despesas?idUsuario=${encodeURIComponent(String(idUsuario))}`);
-      let bodyText = "";
+  const loadDespesas = useCallback(
+    async (idUsuario: number) => {
+      setIsLoading(true);
+      setError(null);
 
       try {
-        bodyText = await response.text();
-      } catch (readError) {
-        console.error("Falha ao ler a resposta ao consultar despesas.", readError);
-      }
+        const response = await fetch(`/api/dashboard/despesas?idUsuario=${idUsuario}`);
+        const payload = (await response.json()) as { despesas?: unknown; error?: string };
 
-      let payload: { despesas?: unknown; error?: string } | null = null;
-
-      if (bodyText) {
-        try {
-          payload = JSON.parse(bodyText) as { despesas?: unknown; error?: string };
-        } catch (parseError) {
-          console.error(
-            "A resposta da API de despesas não está em um formato JSON válido.",
-            parseError,
-            bodyText.slice(0, 120),
-          );
-          setError("Não foi possível carregar as despesas.");
+        if (!response.ok) {
+          setError(payload?.error ?? "Não foi possível carregar as despesas.");
+          setDespesas([]);
           return;
         }
+
+        const normalized = Array.isArray(payload?.despesas)
+          ? (payload.despesas.map((item) => normalizeDespesa(item)).filter(Boolean) as Despesa[])
+          : [];
+
+        const ordered = normalized
+          .slice()
+          .sort((a, b) => {
+            const aTime = Date.parse(a.data);
+            const bTime = Date.parse(b.data);
+
+            if (Number.isNaN(aTime) && Number.isNaN(bTime)) {
+              return 0;
+            }
+
+            if (Number.isNaN(aTime)) {
+              return 1;
+            }
+
+            if (Number.isNaN(bTime)) {
+              return -1;
+            }
+
+            return bTime - aTime;
+          });
+
+        setDespesas(ordered);
+      } catch (loadError) {
+        console.error("Falha ao consultar despesas cadastradas.", loadError);
+        setError("Não foi possível carregar as despesas.");
+        setDespesas([]);
+      } finally {
+        setIsLoading(false);
       }
-
-      if (!response.ok) {
-        setError(payload?.error ?? "Não foi possível carregar as despesas.");
-        return;
-      }
-
-      const normalized = Array.isArray(payload?.despesas)
-        ? (payload.despesas.map((item) => normalizeDespesa(item)).filter(Boolean) as Despesa[])
-        : [];
-
-      setDespesas(normalized);
-    } catch (loadError) {
-      console.error("Falha ao consultar despesas cadastradas.", loadError);
-      setError("Não foi possível carregar as despesas.");
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
+    },
+    [],
+  );
 
   useEffect(() => {
-    if (!userId) {
-      return;
+    if (userId) {
+      void loadDespesas(userId);
     }
-
-    void loadDespesas(userId);
-  }, [loadDespesas, userId]);
+  }, [userId, loadDespesas]);
 
   const totalDespesas = useMemo(
     () => despesas.reduce((sum, despesa) => sum + despesa.valor, 0),
@@ -206,12 +208,14 @@ export default function DespesasPage() {
         return;
       }
 
-      const shouldDelete = window.confirm(
-        `Deseja realmente excluir a despesa "${despesa.descricao || "Sem descrição"}"?`,
-      );
+      if (typeof window !== "undefined") {
+        const shouldDelete = window.confirm(
+          `Deseja realmente excluir a despesa "${despesa.descricao || "Sem descrição"}"?`,
+        );
 
-      if (!shouldDelete) {
-        return;
+        if (!shouldDelete) {
+          return;
+        }
       }
 
       setDeletingId(despesaId);
@@ -221,29 +225,7 @@ export default function DespesasPage() {
         const response = await fetch(`/api/dashboard/despesas/${encodeURIComponent(despesaId)}`, {
           method: "DELETE",
         });
-        let bodyText = "";
-
-        if (response.status !== 204) {
-          try {
-            bodyText = await response.text();
-          } catch (readError) {
-            console.error("Falha ao ler a resposta da exclusão de despesa.", readError);
-          }
-        }
-
-        let payload: { error?: string } | null = null;
-
-        if (bodyText) {
-          try {
-            payload = JSON.parse(bodyText) as { error?: string } | null;
-          } catch (parseError) {
-            console.error(
-              "A resposta da API ao excluir despesa não está em um formato JSON válido.",
-              parseError,
-              bodyText.slice(0, 120),
-            );
-          }
-        }
+        const payload = await response.json().catch(() => null as { error?: string } | null);
 
         if (!response.ok) {
           setError(payload?.error ?? "Não foi possível excluir a despesa.");
