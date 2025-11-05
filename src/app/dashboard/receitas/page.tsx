@@ -51,6 +51,32 @@ function normalizeReceitaId(value: unknown): number | string | undefined {
   return undefined;
 }
 
+function resolveReceitaId(candidate: {
+  id?: unknown;
+  idReceita?: unknown;
+  receitaId?: unknown;
+  id_receita?: unknown;
+  receita_id?: unknown;
+}) {
+  const possibleIds = [
+    candidate.id,
+    candidate.idReceita,
+    candidate.receitaId,
+    candidate.id_receita,
+    candidate.receita_id,
+  ];
+
+  for (const value of possibleIds) {
+    const normalized = normalizeReceitaId(value);
+
+    if (normalized != null) {
+      return normalized;
+    }
+  }
+
+  return undefined;
+}
+
 function normalizeReceita(raw: unknown): Receita | null {
   if (!raw || typeof raw !== "object") {
     return null;
@@ -58,6 +84,10 @@ function normalizeReceita(raw: unknown): Receita | null {
 
   const candidate = raw as {
     id?: unknown;
+    idReceita?: unknown;
+    receitaId?: unknown;
+    id_receita?: unknown;
+    receita_id?: unknown;
     idUsuario?: unknown;
     valor?: unknown;
     data?: unknown;
@@ -84,7 +114,7 @@ function normalizeReceita(raw: unknown): Receita | null {
   }
 
   return {
-    id: normalizeReceitaId(candidate.id),
+    id: resolveReceitaId(candidate),
     idUsuario: numericUserId as number,
     valor: numericValor as number,
     data: typeof candidate.data === "string" ? candidate.data : "",
