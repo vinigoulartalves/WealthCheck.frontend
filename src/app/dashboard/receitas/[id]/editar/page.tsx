@@ -82,6 +82,16 @@ function parseValor(value: string) {
   return Number(sanitized);
 }
 
+function formatValorForInput(value: number) {
+  if (!Number.isFinite(value)) {
+    return "";
+  }
+
+  return value
+    .toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+    .replace(/[^\d.,-]/g, "");
+}
+
 function toDateInputValue(value: string) {
   if (!value) {
     return "";
@@ -119,7 +129,7 @@ export default function EditReceitaPage({ params }: EditPageProps) {
       setError(null);
 
       try {
-        const response = await fetch(`/api/dashboard/receitas/${params.id}`);
+        const response = await fetch(`/api/dashboard/receita/${params.id}`);
         const payload = (await response.json()) as { receita?: unknown; error?: string };
 
         if (!response.ok) {
@@ -136,7 +146,7 @@ export default function EditReceitaPage({ params }: EditPageProps) {
 
         setCurrentReceita(normalized);
         setFormState({
-          valor: normalized.valor.toString(),
+          valor: formatValorForInput(normalized.valor),
           data: toDateInputValue(normalized.data),
           descricao: normalized.descricao,
           categoria: normalized.categoria,
@@ -155,13 +165,13 @@ export default function EditReceitaPage({ params }: EditPageProps) {
   }, [params?.id]);
 
   function handleChange(field: keyof FormState) {
-    return (event: FormEvent<HTMLInputElement>) => {
-      const target = event.target as HTMLInputElement;
-      const value = field === "valor" ? normalizeValorInput(target.value) : target.value;
+    return (event: FormEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+      const { value } = event.currentTarget;
+      const formattedValue = field === "valor" ? normalizeValorInput(value) : value;
 
       setFormState((previous) => ({
         ...previous,
-        [field]: value,
+        [field]: formattedValue,
       }));
     };
   }
@@ -204,7 +214,7 @@ export default function EditReceitaPage({ params }: EditPageProps) {
     setError(null);
 
     try {
-      const response = await fetch(`/api/dashboard/receitas/${receitaId}`, {
+      const response = await fetch(`/api/dashboard/receita/${receitaId}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -294,12 +304,7 @@ export default function EditReceitaPage({ params }: EditPageProps) {
               <input
                 type="date"
                 value={formState.data}
-                onChange={(event) =>
-                  setFormState((previous) => ({
-                    ...previous,
-                    data: event.target.value,
-                  }))
-                }
+                onChange={handleChange("data")}
                 className="w-full rounded-xl border border-white/10 bg-white/10 px-4 py-3 text-white outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-400/50"
                 disabled={isSubmitting}
                 required
@@ -311,12 +316,7 @@ export default function EditReceitaPage({ params }: EditPageProps) {
               <input
                 type="text"
                 value={formState.descricao}
-                onChange={(event) =>
-                  setFormState((previous) => ({
-                    ...previous,
-                    descricao: event.target.value,
-                  }))
-                }
+                onChange={handleChange("descricao")}
                 className="w-full rounded-xl border border-white/10 bg-white/10 px-4 py-3 text-white outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-400/50"
                 placeholder="Ex.: Salário mensal"
                 disabled={isSubmitting}
@@ -328,12 +328,7 @@ export default function EditReceitaPage({ params }: EditPageProps) {
               <input
                 type="text"
                 value={formState.categoria}
-                onChange={(event) =>
-                  setFormState((previous) => ({
-                    ...previous,
-                    categoria: event.target.value,
-                  }))
-                }
+                onChange={handleChange("categoria")}
                 className="w-full rounded-xl border border-white/10 bg-white/10 px-4 py-3 text-white outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-400/50"
                 placeholder="Ex.: Salário"
                 disabled={isSubmitting}
