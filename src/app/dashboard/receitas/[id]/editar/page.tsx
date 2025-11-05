@@ -82,6 +82,17 @@ function parseValor(value: string) {
   return Number(sanitized);
 }
 
+function formatValorForInput(value: number) {
+  if (!Number.isFinite(value)) {
+    return "";
+  }
+
+  return value.toLocaleString("pt-BR", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+}
+
 function toDateInputValue(value: string) {
   if (!value) {
     return "";
@@ -136,7 +147,7 @@ export default function EditReceitaPage({ params }: EditPageProps) {
 
         setCurrentReceita(normalized);
         setFormState({
-          valor: normalized.valor.toString(),
+          valor: formatValorForInput(normalized.valor),
           data: toDateInputValue(normalized.data),
           descricao: normalized.descricao,
           categoria: normalized.categoria,
