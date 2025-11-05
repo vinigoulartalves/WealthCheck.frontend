@@ -320,7 +320,7 @@ export default function RevenuePage() {
                           <button
                             type="button"
                             onClick={() => handleDelete(receita)}
-                            disabled={isDeleting || !receitaId}
+                            disabled={isDeleting}
                             className="inline-flex items-center gap-2 rounded-full border border-rose-400/40 bg-rose-500/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.3em] text-rose-200 transition hover:border-rose-300 hover:text-rose-100 disabled:cursor-not-allowed disabled:opacity-60"
                           >
                             {isDeleting ? "Excluindo..." : "Excluir"}
