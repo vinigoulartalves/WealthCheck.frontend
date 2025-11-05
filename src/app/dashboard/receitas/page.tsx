@@ -287,13 +287,6 @@ export default function RevenuePage() {
                     <div className="flex flex-col items-end gap-4">
                       <span className="text-2xl font-semibold text-emerald-200">{formatCurrency(receita.valor)}</span>
                       <div className="flex gap-2">
-                        <Link
-                          href={receita.id ? `/dashboard/receitas/${receita.id}/editar` : "#"}
-                          className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.3em] text-white/70 transition hover:border-emerald-300 hover:text-emerald-200 disabled:opacity-60"
-                          aria-disabled={!receita.id}
-                        >
-                          Editar
-                        </Link>
                         <button
                           type="button"
                           onClick={() => handleDelete(receita)}
